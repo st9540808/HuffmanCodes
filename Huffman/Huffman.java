@@ -10,7 +10,8 @@ import java.util.BitSet;
 
 public class Huffman {
 	public static void main(String[] args) {
-		compress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbccccccccccccddddddddddddddddfffffeeeeeeeee");
+		String compressedString = compress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbccccccccccccddddddddddddddddfffffeeeeeeeee");
+		System.out.println(compressedString);
 	}
 
 	public static String compress(String str) {
@@ -22,16 +23,7 @@ public class Huffman {
 			System.out.println(entry.getKey() + " : " + entry.getValue());
 		}
 
-		// calculate how many bits to use
-		int totalBits = 0;
-		for (Map.Entry<Character, Integer> entry : freq.entrySet()) {
-			totalBits += entry.getValue() * code.get(entry.getKey()).length();
-		}
-		System.out.println(totalBits);
-		
-		BitSet codeBitSet = new BitSet(totalBits);
-
-		return "str";
+		return generateCompressedString(str, freq, code);
 	}
 
 	public static String decompress(String str) throws invalidFormatException {
@@ -93,6 +85,46 @@ public class Huffman {
 
 		printCode(root.left,  str + "0", code);
 		printCode(root.right, str + "1", code);
+	}
+
+	private static String generateCompressedString(String str,
+			HashMap<Character, Integer> freq, HashMap<Character, String> code) {
+		// calculate how many bits to use
+		int totalBits = 0;
+		for (Map.Entry<Character, Integer> entry : freq.entrySet()) {
+			totalBits += entry.getValue() * code.get(entry.getKey()).length();
+		}
+
+		BitSet codeBitSet = new BitSet(totalBits);
+		for (int i = 0, bitIndex = 0; i < str.length(); ++i) {
+			String codeString = code.get(str.charAt(i));
+			for (int j = 0; j < codeString.length(); ++j) {
+				if (codeString.charAt(j) == '1') {
+					codeBitSet.set(bitIndex, true);
+				}
+				else {
+					codeBitSet.set(bitIndex, false);
+				}
+				bitIndex++;
+			}
+		}
+
+		byte[] codeByteArray = codeBitSet.toByteArray();
+		System.out.println(codeByteArray.length);
+		String compressedString = "";
+		for (int i = 0, arrayIndex = 0; i < codeByteArray.length / 2; ++i) {
+			char upperByte = (char)codeByteArray[arrayIndex++];
+			char lowerByte = (char)codeByteArray[arrayIndex++];
+			char compressedChar = (char)((char)(upperByte << 8) | lowerByte);
+			compressedString = compressedString + compressedChar;
+		}
+		if (codeByteArray.length % 2 == 1) {
+			char upperByte = (char)codeByteArray[codeByteArray.length - 1];
+			char compressedChar = (char)(upperByte << 8);
+			compressedString = compressedString + compressedChar;
+		}
+
+		return compressedString;
 	}
 
 	private static class MinHeapNode {
