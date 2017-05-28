@@ -7,32 +7,66 @@ import java.util.PriorityQueue;
 import java.util.Comparator;
 import java.util.AbstractMap;
 import java.util.BitSet;
+import java.util.Arrays;
 
 public class Huffman {
-	public static void main(String[] args) {
-		String compressedString = compress("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbccccccccccccddddddddddddddddfffffeeeeeeeee");
+	private static final int hashMapSize = 20;
+		
+	public static void main(String[] args) throws InvalidFormatException {
+		String str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbccccccccccccddddddddddddddddfffffeeeeeeeee";
+		String compressedString = compress(args[0]);
+		System.out.println(args[0]);
 		System.out.println(compressedString);
+		String decompressedStr = decompress(compressedString);
+		System.out.println(decompressedStr);
 	}
 
 	public static String compress(String str) {
 		HashMap<Character, Integer> freq = countFreq(str);
 		HashMap<Character, String> code = generateCode(freq);
-		
-		/* test Huffman codes */
-		for (Map.Entry entry : code.entrySet()) {
-			System.out.println(entry.getKey() + " : " + entry.getValue());
-		}
-
-		return generateCompressedString(str, freq, code);
+		int totalBits = countTotalBits(str, freq, code);
+		return generateDecodeString(totalBits, code) + "|" + generateCompressedString(str, code);
 	}
 
-	public static String decompress(String str) throws invalidFormatException {
+	public static String decompress(String str) throws InvalidFormatException {
+		int totalBitsIndex = str.indexOf('\u0000');
+		if (totalBitsIndex == -1) {
+			throw new InvalidFormatException();
+		}
 
-		return "str";
+		int totalBits = 0;
+		try {
+			totalBits = Integer.parseInt(str.substring(0, totalBitsIndex));
+		}
+		catch (NumberFormatException e) {
+			throw new InvalidFormatException();
+		}
+		
+		HashMap<String, Character> decompressedCode
+			= getDecompressedCode(str.substring(totalBitsIndex + 1, str.indexOf('|')));
+
+		// decompress section (for testing)
+		String compressedString = str.substring(str.indexOf('|') + 1);
+		byte[] decompressedCodeArray = new byte[compressedString.length() * 2];
+		for (int i = 0, arrayIndex = 0; i < compressedString.length(); ++i) {
+			char compressedChar = compressedString.charAt(i);
+			decompressedCodeArray[arrayIndex++] = (byte)(compressedChar >>> 8);
+			decompressedCodeArray[arrayIndex++] = (byte)(compressedChar & 0xff);
+		}
+
+		// reconstructing BitSet
+		BitSet decompressedBitSet = new BitSet();
+		for (int i = 0; i < decompressedCodeArray.length * 8; ++i) {
+			if ((decompressedCodeArray[i / 8] & (1 << (i % 8))) > 0) {
+				decompressedBitSet.set(i);
+			}
+		}
+
+		return reconstructString(decompressedCode, decompressedBitSet, totalBits);
 	}
 
 	private static HashMap<Character, Integer> countFreq(String str) {
-		HashMap<Character, Integer> freq = new HashMap<>(20);
+		HashMap<Character, Integer> freq = new HashMap<>(hashMapSize);
 
 		for (int i = 0; i < str.length(); ++i) {
 			Integer count = freq.get(str.charAt(i));
@@ -59,7 +93,7 @@ public class Huffman {
 		}
 
 		// constructing Huffman codes
-		HashMap<Character, String> code = new HashMap<>(20);
+		HashMap<Character, String> code = new HashMap<>(hashMapSize);
 		final int queueSize = queue.size() - 1;
 		for (int i = 0; i < queueSize; ++i) {
 			MinHeapNode x = queue.poll();
@@ -87,35 +121,25 @@ public class Huffman {
 		printCode(root.right, str + "1", code);
 	}
 
-	private static String generateCompressedString(String str,
-			HashMap<Character, Integer> freq, HashMap<Character, String> code) {
-		// calculate how many bits to use
-		int totalBits = 0;
-		for (Map.Entry<Character, Integer> entry : freq.entrySet()) {
-			totalBits += entry.getValue() * code.get(entry.getKey()).length();
-		}
-
-		BitSet codeBitSet = new BitSet(totalBits);
+	private static String generateCompressedString(String str, HashMap<Character, String> code) {
+		// create bitset
+		BitSet codeBitSet = new BitSet();
 		for (int i = 0, bitIndex = 0; i < str.length(); ++i) {
 			String codeString = code.get(str.charAt(i));
 			for (int j = 0; j < codeString.length(); ++j) {
 				if (codeString.charAt(j) == '1') {
-					codeBitSet.set(bitIndex, true);
-				}
-				else {
-					codeBitSet.set(bitIndex, false);
+					codeBitSet.set(bitIndex);
 				}
 				bitIndex++;
 			}
 		}
-
+		
 		byte[] codeByteArray = codeBitSet.toByteArray();
-		System.out.println(codeByteArray.length);
 		String compressedString = "";
 		for (int i = 0, arrayIndex = 0; i < codeByteArray.length / 2; ++i) {
-			char upperByte = (char)codeByteArray[arrayIndex++];
-			char lowerByte = (char)codeByteArray[arrayIndex++];
-			char compressedChar = (char)((char)(upperByte << 8) | lowerByte);
+			int upperByte = (codeByteArray[arrayIndex++] << 8) & 0x0000ff00;
+			int lowerByte = codeByteArray[arrayIndex++] & 0x000000ff;
+			char compressedChar = (char)(upperByte | lowerByte);
 			compressedString = compressedString + compressedChar;
 		}
 		if (codeByteArray.length % 2 == 1) {
@@ -127,6 +151,61 @@ public class Huffman {
 		return compressedString;
 	}
 
+	private static int countTotalBits(String str,
+			HashMap<Character, Integer> freq, HashMap<Character, String> code) {
+		// calculate how many bits to use
+		int totalBits = 0;
+		for (Map.Entry<Character, Integer> entry : freq.entrySet()) {
+			totalBits += entry.getValue() * code.get(entry.getKey()).length();
+		}
+		return totalBits;
+	}
+
+	private static String generateDecodeString(int totalBits, HashMap<Character, String> code) {
+		String decodeString = "" + totalBits;
+		for (Map.Entry<Character, String> entry : code.entrySet()) {
+			decodeString = decodeString + "\u0000" + entry.getKey() + entry.getValue();
+		}
+		return decodeString;
+	}
+
+	///////////////////////////////////////////////////////////////////////////////////
+	// for decompress
+	///////////////////////////////////////////////////////////////////////////////////
+	private static HashMap<String, Character> getDecompressedCode(String str) {
+		HashMap<String, Character> decompressedCode = new HashMap<>(hashMapSize);
+		
+		String[] parts = str.split("\u0000");
+		for (String part : parts) {
+			decompressedCode.put(part.substring(1), part.charAt(0));
+		}
+
+		return decompressedCode;
+	}
+
+	private static String reconstructString(HashMap<String, Character> decompressedCode,
+			BitSet decompressedBitSet, int totalBits) {
+		// reconstructing string
+		String decompressedStr = "";
+		String matchStr = "";
+		for (int i = 0; i < totalBits; ++i) {
+			if (decompressedBitSet.get(i) == true) {
+				matchStr = matchStr + "1";
+			}
+			else {
+				matchStr = matchStr + "0";
+			}
+
+			if (decompressedCode.containsKey(matchStr)) {
+				char matchChar = decompressedCode.get(matchStr);
+				decompressedStr = decompressedStr + matchChar;
+				matchStr = "";
+			}
+		}
+
+		return decompressedStr;
+	}
+	
 	private static class MinHeapNode {
 		private Map.Entry<Character, Integer> entry; 
 		private MinHeapNode left;
