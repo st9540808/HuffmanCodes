@@ -13,20 +13,20 @@ public class Huffman {
 	private static final int hashMapSize = 20;
 		
 	public static String compress(String str) {
-		HashMap<Character, Integer> freq = countFreq(str);
-		HashMap<Character, String> code = generateCode(freq);
-		int totalBits = countTotalBits(str, freq, code);
+		final HashMap<Character, Integer> freq = countFreq(str);
+		final HashMap<Character, String> code = generateCode(freq);
+		final int totalBits = countTotalBits(str, freq, code);
 		return generateDecodeString(totalBits, code) + "\u0000\u0000"
 			 + generateCompressedString(str, code);
 	}
 
 	public static String decompress(String str) throws InvalidFormatException {
-		int totalBitsIndex = str.indexOf('\u0000');
+		final int totalBitsIndex = str.indexOf('\u0000');
 		if (totalBitsIndex == -1) {
 			throw new InvalidFormatException();
 		}
 
-		int totalBits = 0;
+		final int totalBits;
 		try {
 			totalBits = Integer.parseInt(str.substring(0, totalBitsIndex));
 		}
@@ -34,16 +34,16 @@ public class Huffman {
 			throw new InvalidFormatException();
 		}
 		
-		int compressedStringSeperatorIndex = str.indexOf("\u0000\u0000");
+		final int compressedStringSeperatorIndex = str.indexOf("\u0000\u0000");
 		if (compressedStringSeperatorIndex == -1) {
 			throw new InvalidFormatException();
 		}
-		HashMap<String, Character> decompressedCode
+		final HashMap<String, Character> decompressedCode
 			= getDecompressedCode(str.substring(totalBitsIndex + 1, compressedStringSeperatorIndex));
 		
 
-		// decompress section (for testing)
-		String compressedString = str.substring(compressedStringSeperatorIndex + 2);
+		// decompress section
+		final String compressedString = str.substring(compressedStringSeperatorIndex + 2);
 		byte[] decompressedCodeArray = new byte[compressedString.length() * 2];
 		for (int i = 0, arrayIndex = 0; i < compressedString.length(); ++i) {
 			char compressedChar = compressedString.charAt(i);
@@ -52,7 +52,7 @@ public class Huffman {
 		}
 
 		// reconstructing BitSet
-		BitSet decompressedBitSet = new BitSet();
+		final BitSet decompressedBitSet = new BitSet();
 		for (int i = 0; i < decompressedCodeArray.length * 8; ++i) {
 			if ((decompressedCodeArray[i / 8] & (1 << (i % 8))) > 0) {
 				decompressedBitSet.set(i);
