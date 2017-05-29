@@ -16,7 +16,8 @@ public class Huffman {
 		HashMap<Character, Integer> freq = countFreq(str);
 		HashMap<Character, String> code = generateCode(freq);
 		int totalBits = countTotalBits(str, freq, code);
-		return generateDecodeString(totalBits, code) + "|" + generateCompressedString(str, code);
+		return generateDecodeString(totalBits, code) + "\u0000\u0000"
+			 + generateCompressedString(str, code);
 	}
 
 	public static String decompress(String str) throws InvalidFormatException {
@@ -33,11 +34,16 @@ public class Huffman {
 			throw new InvalidFormatException();
 		}
 		
+		int compressedStringSeperatorIndex = str.indexOf("\u0000\u0000");
+		if (compressedStringSeperatorIndex == -1) {
+			throw new InvalidFormatException();
+		}
 		HashMap<String, Character> decompressedCode
-			= getDecompressedCode(str.substring(totalBitsIndex + 1, str.indexOf('|')));
+			= getDecompressedCode(str.substring(totalBitsIndex + 1, compressedStringSeperatorIndex));
+		
 
 		// decompress section (for testing)
-		String compressedString = str.substring(str.indexOf('|') + 1);
+		String compressedString = str.substring(compressedStringSeperatorIndex + 2);
 		byte[] decompressedCodeArray = new byte[compressedString.length() * 2];
 		for (int i = 0, arrayIndex = 0; i < compressedString.length(); ++i) {
 			char compressedChar = compressedString.charAt(i);
