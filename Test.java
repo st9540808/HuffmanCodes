@@ -2,7 +2,7 @@ import Huffman.*;
 
 public class Test {
 	public static void main(String[] args) {
-		String compressedStr = Huffman.compress("this is a test string!!!");
+		String compressedStr = Huffman.compress(args[0]);
 		System.out.println(compressedStr);
 
 		String decompressedStr;

@@ -12,15 +12,6 @@ import java.util.Arrays;
 public class Huffman {
 	private static final int hashMapSize = 20;
 		
-	public static void main(String[] args) throws InvalidFormatException {
-		String str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbccccccccccccddddddddddddddddfffffeeeeeeeee";
-		String compressedString = compress(args[0]);
-		System.out.println(args[0]);
-		System.out.println(compressedString);
-		String decompressedStr = decompress(compressedString);
-		System.out.println(decompressedStr);
-	}
-
 	public static String compress(String str) {
 		HashMap<Character, Integer> freq = countFreq(str);
 		HashMap<Character, String> code = generateCode(freq);
