@@ -88,6 +88,11 @@ public class Huffman {
 			newNode.setEntry(new AbstractMap.SimpleEntry<Character, Integer>(entry));
 			queue.add(newNode);
 		}
+		if (queue.size() == 1) { // for special case of a single kind of character
+			HashMap<Character, String> code = new HashMap<>(1);
+			code.put(queue.poll().entry.getKey(), "0");
+			return code;
+		}
 
 		// constructing Huffman codes
 		HashMap<Character, String> code = new HashMap<>(hashMapSize);
