@@ -8,9 +8,10 @@ import java.util.Comparator;
 import java.util.AbstractMap;
 import java.util.BitSet;
 import java.util.Arrays;
+import java.lang.reflect.*;
 
 public class Huffman {
-	private static final int hashMapSize = 20;
+	private static final int hashMapSize = 100;
 		
 	public static String compress(String str) {
 		final HashMap<Character, Integer> freq = countFreq(str);
@@ -41,7 +42,6 @@ public class Huffman {
 		final HashMap<String, Character> decompressedCode
 			= getDecompressedCode(str.substring(totalBitsIndex + 1, compressedStringSeperatorIndex));
 		
-
 		// decompress section
 		final String compressedString = str.substring(compressedStringSeperatorIndex + 2);
 		byte[] decompressedCodeArray = new byte[compressedString.length() * 2];
@@ -62,18 +62,40 @@ public class Huffman {
 		return reconstructString(decompressedCode, decompressedBitSet, totalBits);
 	}
 
+	///////////////////////////////////////////////////////////////////////////////////
+	// for compress
+	///////////////////////////////////////////////////////////////////////////////////
 	private static HashMap<Character, Integer> countFreq(String str) {
 		HashMap<Character, Integer> freq = new HashMap<>(hashMapSize);
 
-		for (int i = 0; i < str.length(); ++i) {
-			Integer count = freq.get(str.charAt(i));
-			if (count == null) {
-				freq.put(str.charAt(i), 1);
-			}
-			else {
+		if (str.length() < 512) {
+			final int length = str.length();
+			for (int i = 0; i < length; ++i) {
+				int count = freq.getOrDefault(str.charAt(i), 0);
 				freq.put(str.charAt(i), count + 1);
 			}
-		}
+		} else { // str.length() >= 512
+			Field field = null;
+			try {
+				field = String.class.getDeclaredField("value");
+			} catch(NoSuchFieldException ex) {
+				System.exit(1);
+			}
+			field.setAccessible(true);
+	
+			try {
+				final char[] chars = (char[]) field.get(str);
+				final int length = chars.length;
+				for (int i = 0; i < length; ++i) {
+					int count = freq.getOrDefault(chars[i], 0);
+					freq.put(chars[i], count + 1);
+				}
+			} catch (Exception ex) {
+				System.out.println(ex.getMessage());
+				System.out.println("error occurs in countFreq()");
+				System.exit(1);
+			}
+		} // end case of str.length() >= 512
 
 		return freq;
 	}
@@ -95,7 +117,6 @@ public class Huffman {
 		}
 
 		// constructing Huffman codes
-		HashMap<Character, String> code = new HashMap<>(hashMapSize);
 		final int queueSize = queue.size() - 1;
 		for (int i = 0; i < queueSize; ++i) {
 			MinHeapNode x = queue.poll();
@@ -109,6 +130,8 @@ public class Huffman {
 			queue.add(newNode);
 		}
 		
+		// storing final result
+		HashMap<Character, String> code = new HashMap<>(hashMapSize);
 		printCode(queue.poll(), "", code);
 		return code;
 	}
@@ -126,16 +149,49 @@ public class Huffman {
 	private static String generateCompressedString(String str, HashMap<Character, String> code) {
 		// create bitset
 		BitSet codeBitSet = new BitSet();
-		for (int i = 0, bitIndex = 0; i < str.length(); ++i) {
+
+		Field field = null;
+		try {
+			field = String.class.getDeclaredField("value");
+		} catch(NoSuchFieldException ex) {
+			System.exit(1);
+		}
+		field.setAccessible(true);
+
+		try {
+			final char[] chars = (char[]) field.get(str);
+			final int length = chars.length;
+			/* code here */
+			for (int i = 0, bitIndex = 0; i < length; ++i) {
+				String codeString = code.get(chars[i]);
+
+				final int codeStrLength = codeString.length();
+				for (int j = 0; j < codeStrLength; ++j) {
+					if (codeString.charAt(j) == '1') {
+						codeBitSet.set(bitIndex);
+					}
+					bitIndex++;
+				}
+			}
+		} catch (Exception ex) {
+			System.out.println(ex.getMessage());
+			System.out.println("error occurs in countFreq()");
+			System.exit(1);
+		}
+
+/*		final int strLength = str.length();
+		for (int i = 0, bitIndex = 0; i < strLength; ++i) {
 			String codeString = code.get(str.charAt(i));
-			for (int j = 0; j < codeString.length(); ++j) {
+
+			final int codeStrLength = codeString.length();
+			for (int j = 0; j < codeStrLength; ++j) {
 				if (codeString.charAt(j) == '1') {
 					codeBitSet.set(bitIndex);
 				}
 				bitIndex++;
 			}
 		}
-		
+*/		
 		byte[] codeByteArray = codeBitSet.toByteArray();
 		String compressedString = "";
 		for (int i = 0, arrayIndex = 0; i < codeByteArray.length / 2; ++i) {
