@@ -9,6 +9,7 @@ import java.util.AbstractMap;
 import java.util.BitSet;
 import java.util.Arrays;
 import java.lang.reflect.*;
+import java.lang.StringBuilder;
 
 public class Huffman {
 	private static final int hashMapSize = 100;
@@ -16,9 +17,12 @@ public class Huffman {
 	public static String compress(String str) {
 		final HashMap<Character, Integer> freq = countFreq(str);
 		final HashMap<Character, String> code = generateCode(freq);
+		final HashMap<Character, boolean[]> codeboolArray
+			= convertValueStringTobooleanArray(code);
+
 		final int totalBits = countTotalBits(str, freq, code);
 		return generateDecodeString(totalBits, code) + "\u0000\u0000"
-			 + generateCompressedString(str, code);
+			 + generateCompressedString(str, codeboolArray, totalBits);
 	}
 
 	public static String decompress(String str) throws InvalidFormatException {
@@ -30,8 +34,7 @@ public class Huffman {
 		final int totalBits;
 		try {
 			totalBits = Integer.parseInt(str.substring(0, totalBitsIndex));
-		}
-		catch (NumberFormatException e) {
+		} catch (NumberFormatException e) {
 			throw new InvalidFormatException();
 		}
 		
@@ -146,7 +149,25 @@ public class Huffman {
 		printCode(root.right, str + "1", code);
 	}
 
-	private static String generateCompressedString(String str, HashMap<Character, String> code) {
+	private static HashMap<Character, boolean[]> convertValueStringTobooleanArray
+				  (HashMap<Character, String> code) {
+		HashMap<Character, boolean[]> codeboolArray = new HashMap<>(hashMapSize);
+		
+		for (Map.Entry<Character, String> entry : code.entrySet()) {
+			String entryString = entry.getValue();
+			boolean[] boolArray = new boolean[entryString.length()];
+			for (int i = 0; i < boolArray.length; ++i) {
+				if (entryString.charAt(i) == '1') {
+					boolArray[i] = true;
+				}
+			}
+			codeboolArray.put(entry.getKey(), boolArray);
+		}
+		return codeboolArray;
+	}
+
+	private static String generateCompressedString
+		(String str, HashMap<Character, boolean[]> code, int totalBits) {
 		// create bitset
 		BitSet codeBitSet = new BitSet();
 
@@ -163,14 +184,12 @@ public class Huffman {
 			final int length = chars.length;
 			/* code here */
 			for (int i = 0, bitIndex = 0; i < length; ++i) {
-				String codeString = code.get(chars[i]);
+				final boolean[] entryboolArray = code.get(chars[i]);
 
-				final int codeStrLength = codeString.length();
-				for (int j = 0; j < codeStrLength; ++j) {
-					if (codeString.charAt(j) == '1') {
+				for (int j = 0; j < entryboolArray.length; ++j, ++bitIndex) {
+					if (entryboolArray[j] == true) {
 						codeBitSet.set(bitIndex);
 					}
-					bitIndex++;
 				}
 			}
 		} catch (Exception ex) {
@@ -179,34 +198,21 @@ public class Huffman {
 			System.exit(1);
 		}
 
-/*		final int strLength = str.length();
-		for (int i = 0, bitIndex = 0; i < strLength; ++i) {
-			String codeString = code.get(str.charAt(i));
-
-			final int codeStrLength = codeString.length();
-			for (int j = 0; j < codeStrLength; ++j) {
-				if (codeString.charAt(j) == '1') {
-					codeBitSet.set(bitIndex);
-				}
-				bitIndex++;
-			}
-		}
-*/		
 		byte[] codeByteArray = codeBitSet.toByteArray();
-		String compressedString = "";
+		StringBuilder compressedString = new StringBuilder(totalBits / 16 + 1);
 		for (int i = 0, arrayIndex = 0; i < codeByteArray.length / 2; ++i) {
 			int upperByte = (codeByteArray[arrayIndex++] << 8) & 0x0000ff00;
 			int lowerByte = codeByteArray[arrayIndex++] & 0x000000ff;
 			char compressedChar = (char)(upperByte | lowerByte);
-			compressedString = compressedString + compressedChar;
+			compressedString.append(compressedChar);
 		}
 		if (codeByteArray.length % 2 == 1) {
 			char upperByte = (char)codeByteArray[codeByteArray.length - 1];
 			char compressedChar = (char)(upperByte << 8);
-			compressedString = compressedString + compressedChar;
+			compressedString.append(compressedChar);
 		}
 
-		return compressedString;
+		return compressedString.toString();
 	}
 
 	private static int countTotalBits(String str,
@@ -242,26 +248,34 @@ public class Huffman {
 	}
 
 	private static String reconstructString(HashMap<String, Character> decompressedCode,
-			BitSet decompressedBitSet, int totalBits) {
+		 BitSet decompressedBitSet, int totalBits) {
+		// get max
+		int maxStringLength = 0;
+		for (Map.Entry<String, Character> entry : decompressedCode.entrySet()) {
+			if (entry.getKey().length() > maxStringLength) { 
+				maxStringLength = entry.getKey().length();
+			}
+		}
+		
 		// reconstructing string
-		String decompressedStr = "";
-		String matchStr = "";
+		StringBuilder decompressedStr = new StringBuilder();
+		StringBuilder matchStr = new StringBuilder(maxStringLength);
+		
 		for (int i = 0; i < totalBits; ++i) {
 			if (decompressedBitSet.get(i) == true) {
-				matchStr = matchStr + "1";
-			}
-			else {
-				matchStr = matchStr + "0";
+				matchStr.append('1');
+			} else {
+				matchStr.append('0');
 			}
 
-			if (decompressedCode.containsKey(matchStr)) {
-				char matchChar = decompressedCode.get(matchStr);
-				decompressedStr = decompressedStr + matchChar;
-				matchStr = "";
+			if (decompressedCode.containsKey(matchStr.toString())) {
+				char matchChar = decompressedCode.get(matchStr.toString());
+				decompressedStr.append(matchChar);
+				matchStr.setLength(0);
 			}
 		}
 
-		return decompressedStr;
+		return decompressedStr.toString();
 	}
 	
 	private static class MinHeapNode {

@@ -6,7 +6,7 @@ public class TestFile {
 	public static void main(String[] args) {
 		compress(args[0]);
 
-//		/*		
+		/*		
 		String content = null;
 		try {
 			content = new String(Files.readAllBytes(Paths.get(args[0])));
